@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="communityMapper">
+
+	<!-- 전체 글 목록 -->
+	<select id="getAllPosts" resultType="model.dto.PostDTO">
+		SELECT P.*,
+		(SELECT COUNT(*) FROM COMMENTS C WHERE C.POST_ID =
+		P.POST_ID) AS COMMENT_COUNT
+		FROM POSTS P
+		<where>
+			<if test="category != null and category != 'all'">
+				CATEGORY = #{category}
+			</if>
+			<if test="keyword != null and keyword != ''">
+				<if test="category != null and category != 'all'">AND</if>
+				TITLE LIKE '%' || #{keyword} || '%'
+			</if>
+		</where>
+		ORDER BY CREATED_AT DESC
+	</select>
+	
+	<!-- 글 조회 -->
+	<select id="getPostById" resultType="model.dto.PostDTO">
+		SELECT P.*, U.NICKNAME
+		FROM POSTS P
+		JOIN USERS U ON P.USER_ID = U.USER_ID
+		WHERE P.POST_ID = #{postId}
+	</select>
+
+	<!-- 게시글 등록 -->
+	<insert id="insertPost" parameterType="model.dto.PostDTO">
+		INSERT INTO POSTS
+		(POST_ID, USER_ID, CATEGORY, TITLE, P_CONTENT, FILE_PATH, FILE_TYPE,
+		CREATED_AT)
+		VALUES
+		(POSTS_SEQ.NEXTVAL, #{userId}, #{category}, #{title},
+		#{pContent}, #{filePath}, #{fileType}, SYSDATE)
+	</insert>
+
+	<!-- 게시글 수정 -->
+	<update id="updatePost" parameterType="model.dto.PostDTO">
+		UPDATE POSTS
+		SET TITLE =
+		#{title},
+		P_CONTENT = #{pContent},
+		FILE_PATH = #{filePath},
+		FILE_TYPE = #{fileType}
+		WHERE POST_ID = #{postId}
+	</update>
+
+	<!-- ✅ 댓글 먼저 삭제 -->
+	<delete id="deleteCommentsByPostId" parameterType="int">
+		DELETE FROM
+		COMMENTS WHERE POST_ID = #{postId}
+	</delete>
+
+	<!-- ✅ 게시글 삭제 -->
+	<delete id="deletePostById" parameterType="int">
+		DELETE FROM POSTS
+		WHERE POST_ID = #{postId}
+	</delete>
+
+	<!-- 내가 쓴 글 목록 -->
+	<select id="selectMyPosts" parameterType="String" resultType="model.dto.PostDTO">
+		SELECT P.POST_ID, P.CATEGORY, P.TITLE, P.CREATED_AT, U.NICKNAME
+		FROM POSTS P
+		JOIN USERS U ON P.USER_ID = U.USER_ID
+		WHERE P.USER_ID = #{userId}
+		ORDER BY P.CREATED_AT DESC
+	</select>
+
+	<!-- 내가 쓴 댓글 목록 -->
+	<select id="selectMyComments" parameterType="String" resultMap="commentWithPostTitle">
+		SELECT C.COMMENT_ID, C.POST_ID, C.C_CONTENT, C.CREATED_AT, P.TITLE, U.NICKNAME
+		FROM COMMENTS C
+		JOIN POSTS P ON C.POST_ID = P.POST_ID
+		JOIN USERS U ON C.USER_ID = U.USER_ID
+		WHERE C.USER_ID = #{userId}
+		ORDER BY C.CREATED_AT DESC
+	</select>
+
+	<!-- 게시글 총 개수 -->
+	<select id="getTotalPostCount" parameterType="map"
+		resultType="int">
+		SELECT COUNT(*) FROM POSTS
+		<where>
+			<if test="category != null and category != 'all'">
+				CATEGORY = #{category}
+			</if>
+			<if test="keyword != null and keyword != ''">
+				<if test="category != null and category != 'all'">AND</if>
+				TITLE LIKE '%' || #{keyword} || '%'
+			</if>
+		</where>
+	</select>
+
+	<!-- 페이징된 게시글 목록 -->
+	<select id="getPostsWithPaging" parameterType="map" resultType="model.dto.PostDTO">
+		SELECT * FROM (
+			SELECT ROWNUM AS RN, A.* FROM (
+				SELECT P.*, U.NICKNAME,
+				       (SELECT COUNT(*) FROM COMMENTS C WHERE C.POST_ID = P.POST_ID) AS COMMENT_COUNT
+				FROM POSTS P
+				JOIN USERS U ON P.USER_ID = U.USER_ID
+				<where>
+					<if test="category != null and category != 'all'">
+						P.CATEGORY = #{category}
+					</if>
+					<if test="keyword != null and keyword != ''">
+						<if test="category != null and category != 'all'">AND</if>
+						P.TITLE LIKE '%' || #{keyword} || '%'
+					</if>
+				</where>
+				ORDER BY P.CREATED_AT DESC
+			) A
+			WHERE ROWNUM &lt;= #{offset} + #{limit}
+		)
+		WHERE RN &gt; #{offset}
+	</select>
+
+	<resultMap id="commentWithPostTitle"
+		type="model.dto.CommentDTO">
+		<result property="commentId" column="COMMENT_ID" />
+		<result property="postId" column="POST_ID" />
+		<result property="cContent" column="C_CONTENT" />
+		<result property="createdAt" column="CREATED_AT" />
+		<result property="postTitle" column="TITLE" />
+		<result property="nickname" column="NICKNAME"/> <!-- ✅ 추가 -->
+	</resultMap>
+	
+
+	<select id="selectMyPostsPaging" parameterType="map" resultType="model.dto.PostDTO">
+		SELECT * FROM (
+			SELECT ROWNUM AS RN, A.* FROM (
+				SELECT P.POST_ID, P.CATEGORY, P.TITLE, P.CREATED_AT, U.NICKNAME
+				FROM POSTS P
+				JOIN USERS U ON P.USER_ID = U.USER_ID
+				WHERE P.USER_ID = #{userId}
+				ORDER BY P.CREATED_AT DESC
+			) A
+			WHERE ROWNUM &lt;= (#{offset} + #{limit})
+		)
+		WHERE RN &gt; #{offset}
+	</select>
+
+
+	<select id="getMyPostCount" parameterType="String"
+		resultType="int">
+		SELECT COUNT(*) FROM POSTS WHERE USER_ID = #{userId}
+	</select>
+
+	<select id="getMyCommentCount" parameterType="String"
+		resultType="int">
+		SELECT COUNT(*) FROM COMMENTS WHERE USER_ID = #{userId}
+	</select>
+
+	<select id="selectMyCommentsPaging" parameterType="map" resultMap="commentWithPostTitle">
+		SELECT * FROM (
+			SELECT ROWNUM AS RN, A.* FROM (
+				SELECT C.COMMENT_ID, C.POST_ID, C.C_CONTENT, C.CREATED_AT, P.TITLE, U.NICKNAME
+				FROM COMMENTS C
+				JOIN POSTS P ON C.POST_ID = P.POST_ID
+				JOIN USERS U ON C.USER_ID = U.USER_ID
+				WHERE C.USER_ID = #{userId}
+				ORDER BY C.CREATED_AT DESC
+			) A
+			WHERE ROWNUM &lt;= #{offset} + #{limit}
+		)
+		WHERE RN &gt; #{offset}
+	</select>
+
+
+
+
+	<select id="getCommentsByPostId" resultMap="commentWithNickname">
+		SELECT C.COMMENT_ID, C.POST_ID, C.USER_ID, C.C_CONTENT, C.CREATED_AT,
+		U.NICKNAME
+		FROM COMMENTS C
+		JOIN USERS U ON C.USER_ID = U.USER_ID
+		WHERE C.POST_ID = #{postId}
+		ORDER BY C.CREATED_AT ASC
+	</select>
+
+	<resultMap id="commentWithNickname"
+		type="model.dto.CommentDTO">
+		<result property="commentId" column="COMMENT_ID" />
+		<result property="postId" column="POST_ID" />
+		<result property="userId" column="USER_ID" />
+		<result property="cContent" column="C_CONTENT" />
+		<result property="createdAt" column="CREATED_AT" />
+		<result property="nickname" column="NICKNAME" />
+	</resultMap>
+
+	<!-- 📌 스크랩 등록 -->
+	<insert id="insertScrap" parameterType="map">
+		INSERT INTO SCRAPS
+		(SCRAP_ID, USER_ID, POST_ID)
+		VALUES (SCRAPS_SEQ.NEXTVAL, #{userId},
+		#{postId})
+	</insert>
+
+	<!-- 📌 스크랩 삭제 -->
+	<delete id="deleteScrap" parameterType="map">
+		DELETE FROM SCRAPS
+		WHERE
+		USER_ID = #{userId} AND POST_ID = #{postId}
+	</delete>
+
+	<!-- 📌 스크랩 여부 확인 -->
+	<select id="checkScrapExists" parameterType="map"
+		resultType="int">
+		SELECT COUNT(*) FROM SCRAPS
+		WHERE USER_ID = #{userId} AND
+		POST_ID = #{postId}
+	</select>
+
+	<!-- 📌 내가 스크랩한 게시글 목록 -->
+	<select id="selectScrapPosts" parameterType="string"
+		resultType="model.dto.PostDTO">
+		SELECT P.POST_ID, P.CATEGORY, P.TITLE, P.CREATED_AT,
+		U.NICKNAME,
+		S.SCRAP_DATE
+		FROM SCRAPS S
+		JOIN POSTS P ON S.POST_ID =
+		P.POST_ID
+		JOIN USERS U ON P.USER_ID = U.USER_ID
+		WHERE S.USER_ID =
+		#{userId}
+		ORDER BY S.SCRAP_DATE DESC
+	</select>
+	<!-- 📌 내가 스크랩한 게시글 갯수 -->
+	<select id="getMyScrapCount" parameterType="string"
+		resultType="int">
+		SELECT COUNT(*) FROM SCRAPS WHERE USER_ID = #{userId}
+	</select>
+
+	<!-- 스크랩 페이징 -->
+	<select id="getMyScrapPostsPaging" parameterType="map"
+		resultType="model.dto.PostDTO">
+		SELECT * FROM (
+		SELECT ROWNUM AS RN, A.* FROM (
+		SELECT P.POST_ID, P.CATEGORY, P.TITLE, P.CREATED_AT, U.NICKNAME,
+		S.SCRAP_DATE
+		FROM SCRAPS S
+		JOIN POSTS P ON S.POST_ID = P.POST_ID
+		JOIN USERS U ON P.USER_ID = U.USER_ID
+		WHERE S.USER_ID = #{userId}
+		ORDER BY S.SCRAP_DATE DESC
+		) A
+		WHERE ROWNUM &lt;= (#{offset} + #{limit})
+		)
+		WHERE RN &gt; #{offset}
+	</select>
+	<!-- ✅ 인기글 (조회수 기준 상위 3개) -->
+	<select id="selectPopularPosts" resultType="model.dto.PostDTO">
+  		SELECT P.POST_ID, P.TITLE, P.VIEW_COUNT, P.CREATED_AT, U.NICKNAME
+  		FROM POSTS P
+  		JOIN USERS U ON P.USER_ID = U.USER_ID
+  		ORDER BY P.VIEW_COUNT DESC, P.CREATED_AT DESC
+  		FETCH FIRST 3 ROWS ONLY
+	</select>
+	
+
+
+
+
+
+</mapper>
