@@ -40,19 +40,6 @@
   <img src="https://github.com/user-attachments/assets/5789ed4b-aecf-4025-9c08-d248d0b2556f" alt="테이블 구조 ERD" width="900" />
 </p>
 
-- `USERS` : 회원 기본 정보 및 상태 관리  
-- `STUDY_GROUP` : 스터디 그룹 정보  
-- `STUDY_MEMBER` : 스터디 참여자 및 역할  
-- `STUDY_NOTICE` : 스터디 공지사항  
-- `STUDY_COMMENT` : 스터디 공지 댓글  
-- `POSTS` : 커뮤니티 게시글  
-- `COMMENTS` : 커뮤니티 댓글  
-- `POST_LIKES` : 게시글 좋아요  
-- `SCRAPS` : 게시글 스크랩  
-- `NOTIFICATIONS` : 알림  
-- `REPORTS` : 신고 내역  
-- `TODO_LIST` : 개인 학습 일정 관리  
-- `STUDY_STATS` / `STUDY_TIMER` : 공부 시간 통계 및 타이머  
 
 ---
 
@@ -110,7 +97,7 @@
 - 커스텀 AJAX 호출과 JSON 응답 처리 과정을 직접 설계하고 구현했다  
 
 ### 추가적으로 구현한 / 구현하고 싶은 기능
-- 정지 회원의 게시글 및 댓글 블라인드 처리 ✅ **(구현 완료)**  
+- ✅ **정지 회원의 게시글 및 댓글 블라인드 처리** — 구현 완료  
 - 신고 사유(카테고리) 세분화 및 관리 기능 추가  
 - 동일한 대상에 대한 중복 신고 방지 로직 구현  
 
